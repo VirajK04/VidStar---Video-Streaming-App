@@ -16,7 +16,6 @@ const registerUser = asyncHandler(async (req, res) => {
     //return response
 
     const { username, email, fullname, password } = req.body
-    console.log(fullname, username, email, password);
     
     if(
         [username, email, fullname, password].some((value) => value.trim() === "")
@@ -33,7 +32,16 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatarLocalPath = req.files?.avatar[0]?.path
-    const coverImageLocalPath = req.files?.coverImage[0]?.path
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path
+
+    let coverImageLocalPath
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
+        coverImageLocalPath = req.files.coverImage[0].path
+    }
+
+    //Don't use same image for avatar and cover as saving them causes one to overwrite the other
+    //as names are same
+    //for this issue you can configure name in multer file
 
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar is required")
