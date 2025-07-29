@@ -15,7 +15,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
     const subscriberCount = await Subscription.aggregate([
         {
             $match: {
-                channel: mongoose.Types.ObjectId(userId)
+                channel: new mongoose.Types.ObjectId(userId)
             }
         },
         {
@@ -36,7 +36,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
     const videoCount = await Video.aggregate([
         {
             $match: {
-                owner: mongoose.Types.ObjectId(userId)
+                owner: new mongoose.Types.ObjectId(userId)
             }
         },
         {
@@ -89,13 +89,13 @@ const getChannelStats = asyncHandler(async (req, res) => {
     ])
 
     const data = {
-        totalSubscribers: subscriberCount[0].totalSubscribers ? subscriberCount[0].totalSubscribers : 0,
-        totalVideos: videoCount[0].totalVideos ? videoCount[0].totalVideos : 0,
-        totalViews: videoCount[0].totalViews ? videoCount[0].totalViews : 0,
-        totalLikes: likesCount[0].totalLikes ? likesCount[0].totalLikes : 0
+        totalSubscribers: subscriberCount[0]?.totalSubscribers ? subscriberCount[0].totalSubscribers : 0,
+        totalVideos: videoCount[0]?.totalVideos ? videoCount[0].totalVideos : 0,
+        totalViews: videoCount[0]?.totalViews ? videoCount[0].totalViews : 0,
+        totalLikes: likesCount[0]?.totalLikes ? likesCount[0].totalLikes : 0
     }
 
-    if(!data) {
+    if (!data) {
         throw new ApiError(404, "Stats not found")
     }
 
@@ -112,18 +112,20 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     const videos = await Video.aggregate([
         {
             $match: {
-                owner: mongoose.Types.ObjectId(userId)
+                owner: new mongoose.Types.ObjectId(userId)
             }
         },
         {
-            videoFile: 1,
-            thumbnail: 1,
-            title: 1,
-            duration: 1,
-            views: 1,
-            isPublished: 1,
-            createdAt: 1,
-            updatedAt: 1
+            $project: {
+                videoFile: 1,
+                thumbnail: 1,
+                title: 1,
+                duration: 1,
+                views: 1,
+                isPublished: 1,
+                createdAt: 1,
+                updatedAt: 1
+            }
         }
     ])
 

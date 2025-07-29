@@ -353,7 +353,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
                     $size: "$subscribers"
                 },
                 channelsSubscribedToCount: {
-                    $size: "subscribedTo"
+                    $size: "$subscribedTo"
                 },
                 isSubscribed: {
                     $cond: {
@@ -378,7 +378,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         }
     ])
 
-    console.log(channel); // assignment
+    // console.log(channel); // assignment
 
     if (!channel?.length) {
         throw new ApiError(404, "Channel does not exist")

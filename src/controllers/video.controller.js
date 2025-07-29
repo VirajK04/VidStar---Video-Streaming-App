@@ -2,6 +2,7 @@ import mongoose, { isValidObjectId } from "mongoose"
 import { Video } from "../models/video.model.js"
 import { Like } from "../models/like.model.js"
 import { Comment } from "../models/comment.model.js"
+import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -158,6 +159,8 @@ const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: get video by id
 
+    const userId = req.user._id
+
     const video = await Video.findByIdAndUpdate(
         videoId,
         { $inc: { views: 1 } },
@@ -305,6 +308,15 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Something went wrong with getting the video")
     }
 
+    await User.findByIdAndUpdate(
+        userId,
+        {
+            $addToSet: {
+                watchHistory: videoId
+            }
+        }
+    )
+
     return res
         .status(200)
         .json(
@@ -360,7 +372,7 @@ const updateThumbnail = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
 
-    const thumbnailLocalPath = req.files?.thumbnail?.path
+    const thumbnailLocalPath = req.files?.path
 
     if (!thumbnailLocalPath) {
         throw new ApiError(400, "Thumbnail is required")
