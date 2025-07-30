@@ -84,12 +84,21 @@ const getUserTweets = asyncHandler(async (req, res) => {
         {
             $addFields: {
                 likeUserIds: {
-                    $map: {
-                        input: "$likes",
-                        as: "like",
-                        in: "$$like.likedBy"
-                    }
-                },
+                    $ifNull: [
+                        {
+                            $map: {
+                                input: "$likes",
+                                as: "like",
+                                in: "$$like.likedBy"
+                            }
+                        },
+                        []
+                    ]
+                }
+            }
+        },
+        {
+            $addFields: {
                 isLiked: {
                     $in: [
                         new mongoose.Types.ObjectId(req.user._id),
@@ -136,6 +145,18 @@ const updateTweet = asyncHandler(async (req, res) => {
 
     const { content } = req.body
 
+    const userId = req.user._id
+
+    const tweet = await Tweet.findById(tweetId)
+
+    if (!tweet) {
+        throw new ApiError(404, "Tweet not found")
+    }
+
+    if (!tweet.owner.equals(userId)) {
+        throw new ApiError(400, "You cannot edit this tweet")
+    }
+
     if (!content) {
         return new ApiError(400, "No content provided")
     }
@@ -176,7 +197,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
 
     const tweet = await Tweet.findById(tweetId)
 
-    if (tweet.owner !== userId) {
+    if (tweet.owner.toString() !== userId.toString()) {
         throw new ApiError(400, "You cannot delete this tweet")
     }
 
@@ -199,25 +220,23 @@ const deleteTweet = asyncHandler(async (req, res) => {
         )
 })
 
-/*
-const getUserTweetsByUsername = asyncHandler(async (req, res) => {
-    const loggedInUserId = req.user?._id || null; // Support guest users
-    const { username } = req.params;
+const getTweetsByUsername = asyncHandler(async (req, res) => {
+    const { username } = req.params
 
     if (!username) {
-        throw new ApiError(400, "Username is required");
+        throw new ApiError(400, "Username is required")
     }
 
-    const targetUser = await User.findOne({ username }).select("_id username fullname avatar");
+    const targetUser = await User.findOne({ username }).select("_idr");
 
     if (!targetUser) {
         throw new ApiError(404, "User not found");
     }
 
-    const pipeline = [
+    const userTweets = await Tweet.aggregate([
         {
             $match: {
-                owner: targetUser._id
+                owner: new mongoose.Types.ObjectId(targetUser._id)
             }
         },
         {
@@ -234,7 +253,6 @@ const getUserTweetsByUsername = asyncHandler(async (req, res) => {
                 pipeline: [
                     {
                         $project: {
-                            _id: 1,
                             username: 1,
                             fullname: 1,
                             avatar: 1
@@ -244,77 +262,72 @@ const getUserTweetsByUsername = asyncHandler(async (req, res) => {
             }
         },
         {
-            $addFields: {
-                owner: { $first: "$owner" }
-            }
-        }
-    ];
-
-    // Conditionally add like-check if user is logged in
-    if (loggedInUserId) {
-        pipeline.push(
-            {
-                $lookup: {
-                    from: "likes",
-                    let: { tweetId: "$_id" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [
-                                        { $eq: ["$tweet", "$$tweetId"] },
-                                        { $eq: ["$user", new mongoose.Types.ObjectId(loggedInUserId)] }
-                                    ]
-                                }
-                            }
-                        },
-                        { $project: { _id: 1 } }
-                    ],
-                    as: "likedByLoggedInUser"
-                }
-            },
-            {
-                $addFields: {
-                    isLikedByCurrentUser: {
-                        $cond: {
-                            if: { $gt: [{ $size: "$likedByLoggedInUser" }, 0] },
-                            then: true,
-                            else: false
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "tweet",
+                as: "likes",
+                pipeline: [
+                    {
+                        $project: {
+                            likedBy: 1
                         }
                     }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                likeUserIds: {
+                    $ifNull: [
+                        {
+                            $map: {
+                                input: "$likes",
+                                as: "like",
+                                in: "$$like.likedBy"
+                            }
+                        },
+                        []
+                    ]
                 }
             }
-        );
-    } else {
-        // For guests, default to false or null
-        pipeline.push({
+        },
+        {
             $addFields: {
-                isLikedByCurrentUser: null
+                isLiked: {
+                    $in: [
+                        new mongoose.Types.ObjectId(req.user._id),
+                        "$likeUserIds"
+                    ]
+                },
+                likeCount: { $size: "$likes" }
             }
-        });
+        },
+        {
+            $project: {
+                _id: 1,
+                content: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                isLiked: 1,
+                likeCount: 1
+            }
+        }
+    ])
+
+    if (!userTweets) {
+        throw new ApiError(500, "Could not get user tweets")
     }
 
-    pipeline.push({
-        $project: {
-            content: 1,
-            owner: 1,
-            createdAt: 1,
-            isLikedByCurrentUser: 1
-        }
-    });
-
-    const tweets = await Tweet.aggregate(pipeline);
-
-    return res.status(200).json(
-        new ApiResponse(200, tweets, `Tweets from ${username} fetched successfully`)
-    );
-});
-*/
+    return res
+        .status(200)
+        .json(new ApiResponse(200, userTweets, "User tweets fetched successfully"))
+})
 
 export {
     createTweet,
     getUserTweets,
     updateTweet,
     deleteTweet,
-    //getUserTweetsByUsername
+    getTweetsByUsername
 }
