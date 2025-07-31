@@ -160,7 +160,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     const likedVideos = await Like.aggregate([
         {
             $match: {
-                likedBy: mongoose.Types.ObjectId(userId),
+                likedBy: new mongoose.Types.ObjectId(userId),
                 video: {
                     $exists: true,
                     $ne: null
@@ -180,13 +180,15 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                             localField: "owner",
                             foreignField: "_id",
                             as: "owner",
-                            pipeline: {
-                                $project: {
-                                    username: 1,
-                                    fullname: 1,
-                                    avatar: 1
+                            pipeline: [
+                                {
+                                    $project: {
+                                        username: 1,
+                                        fullname: 1,
+                                        avatar: 1
+                                    }
                                 }
-                            }
+                            ]
                         }
                     },
                     {

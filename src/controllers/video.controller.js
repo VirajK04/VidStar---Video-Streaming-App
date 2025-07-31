@@ -445,9 +445,26 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
     try {
         await Like.deleteMany({ video: videoId })
-        await Comment.deleteMany({ video: videoId })
+        // await Comment.deleteMany({ video: videoId })
     } catch (error) {
-        throw new ApiError(500, "Failed to delete related likes and comments")
+        throw new ApiError(500, "Failed to delete related likes")
+    }
+
+    try {
+        const deletedComments = await Comment.find({ video: videoId }).select("_id")
+        const commentIds = deletedComments.map(comment => comment._id)
+
+        await Like.deleteMany({
+            $or: [
+                { video: videoId },
+                { comment: { $in: commentIds } }
+            ]
+        })
+
+        await Comment.deleteMany({ video: videoId })
+
+    } catch (error) {
+        throw new ApiError(500, "Failed to delete related comments and their likes")
     }
 
     return res

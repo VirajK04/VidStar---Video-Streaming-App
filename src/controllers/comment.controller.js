@@ -5,11 +5,14 @@ import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { pipeline } from "stream"
+import { Like } from "../models/like.model.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     //TODO: get all comments for a video
     const { videoId } = req.params
     const { page = 1, limit = 10 } = req.query
+
+    const userId = req.user._id
 
     const videoExists = await Video.findById(videoId);
     if (!videoExists) {
@@ -40,6 +43,43 @@ const getVideoComments = asyncHandler(async (req, res) => {
             }
         },
         {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "comment",
+                as: "likes",
+                pipeline: [
+                    {
+                        $project: {
+                            likedBy: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                likeUserIds: {
+                    $map: {
+                        input: "$likes",
+                        as: "like",
+                        in: "$$like.likedBy"
+                    }
+                }
+            }
+        },
+        {
+            $addFields: {
+                isLiked: {
+                    $in: [
+                        new mongoose.Types.ObjectId(userId),
+                        "$likeUserIds"
+                    ]
+                },
+                likeCount: { $size: "$likes" }
+            }
+        },
+        {
             $addFields: {
                 createdBy: {
                     $first: "$createdBy"
@@ -50,7 +90,9 @@ const getVideoComments = asyncHandler(async (req, res) => {
             $project: {
                 content: 1,
                 createdBy: 1,
-                updatedAt: 1
+                updatedAt: 1,
+                likeCount: 1,
+                isLiked: 1
             }
         }
     ]
@@ -62,6 +104,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
     }
 
     const result = await Comment.aggregatePaginate(pipeline, options)
+
+    // console.log(result)
 
     if (!result) {
         throw new ApiError(500, "Something went wrong while getting comments")
@@ -154,7 +198,23 @@ const deleteComment = asyncHandler(async (req, res) => {
 
     const { commentId } = req.params
 
+    const comment = await Comment.findById(commentId)
+
+    if (!comment) {
+        throw new ApiError(400, "Comment not found")
+    }
+
+    if (comment.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not allowed to delete this comment")
+    }
+
     const deletedComment = await Comment.findByIdAndDelete(commentId)
+
+    try {
+            await Like.deleteMany({ comment: commentId })
+        } catch (error) {
+            throw new ApiError(500, "Failed to delete related likes")
+        }
 
     if (!deletedComment) {
         throw new ApiError(500, "Something went wrong while deleting the comment")
