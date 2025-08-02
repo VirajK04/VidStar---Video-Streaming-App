@@ -372,13 +372,13 @@ const updateThumbnail = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
 
-    const thumbnailLocalPath = req.files?.path
+    const thumbnailLocalPath = req.file?.path
 
     if (!thumbnailLocalPath) {
         throw new ApiError(400, "Thumbnail is required")
     }
 
-    const thumbnail = await uploadOnCloudinary(path)
+    const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
 
     if (!thumbnail.url) {
         throw new ApiError(500, "Something went wrong with updating the thumbnail")
