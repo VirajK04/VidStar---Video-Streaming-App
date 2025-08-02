@@ -17,7 +17,7 @@ const createTweet = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Content is required")
     }
 
-    const tweet = Tweet.create({
+    const tweet = await Tweet.create({
         content: content,
         owner: userId
     })
