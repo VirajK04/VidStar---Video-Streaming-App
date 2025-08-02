@@ -80,7 +80,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     const owner = await User.findById(userId).select("username avatar fullname")
 
     if (!owner) {
-        throw new ApiError(404, "Qwner not found")
+        throw new ApiError(404, "Owner not found")
     }
 
     const playlists = await Playlist.find({ owner: userId }).select("-owner -videos")
