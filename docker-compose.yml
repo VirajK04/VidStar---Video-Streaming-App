@@ -10,7 +10,7 @@ services:
         condition: service_healthy
     restart: always
     env_file:
-      - ".env.test"
+      - ".env"
     networks:
       - vidstar-net
 
@@ -29,6 +29,6 @@ services:
 
 volumes:
   mongo_data:
-  
+
 networks:
   vidstar-net:
