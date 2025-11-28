@@ -1,0 +1,34 @@
+services:
+  vidstar_app:
+    build:
+      context: .
+    container_name: "vidstar_backend"
+    ports: 
+      - "8000:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: always
+    env_file:
+      - ".env.test"
+    networks:
+      - vidstar-net
+
+  mongodb:
+    image: mongodb/mongodb-community-server
+    networks:
+      - vidstar-net
+    healthcheck:
+      test: "mongosh --quiet --eval 'db.runCommand(\"ping\").ok' localhost:27017/test"
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+  
+networks:
+  vidstar-net:
